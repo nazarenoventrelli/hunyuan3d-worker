@@ -23,6 +23,10 @@ import tempfile
 import traceback
 
 sys.path.insert(0, "/app")
+# hy3dshape/ is the project folder; the importable package is nested one level down
+# (/app/hy3dshape/hy3dshape/). Without this, "from hy3dshape import FaceReducer"
+# resolves the outer namespace package and fails with "unknown location".
+sys.path.insert(0, "/app/hy3dshape")
 os.chdir("/app")
 
 import runpod
