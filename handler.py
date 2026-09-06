@@ -60,7 +60,7 @@ from hy3dshape import (  # noqa: E402
 from hy3dshape.pipelines import export_to_trimesh  # noqa: E402
 from hy3dshape.rembg import BackgroundRemover  # noqa: E402
 
-HANDLER_VERSION = "v5-export-trimesh"
+HANDLER_VERSION = "v6-paint-syspath"
 print("[boot] handler " + HANDLER_VERSION)
 
 MODEL_PATH = "tencent/Hunyuan3D-2.1"
@@ -94,7 +94,12 @@ def get_shape():
 def get_paint(max_num_view, resolution):
     global _paint
     if _paint is None:
-        from hy3dpaint.textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
+        # textureGenPipeline does 'from DifferentiableRenderer.MeshRender import ...' and
+        # 'from utils.xxx import ...', so hy3dpaint itself has to be on sys.path. Kept local
+        # to this call: 'utils' is a generic name and should not shadow anything worker-wide.
+        if "/app/hy3dpaint" not in sys.path:
+            sys.path.insert(0, "/app/hy3dpaint")
+        from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
 
         t = time.time()
         conf = Hunyuan3DPaintConfig(max_num_view=max_num_view, resolution=resolution)

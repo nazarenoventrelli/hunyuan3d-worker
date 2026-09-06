@@ -71,7 +71,7 @@ def main():
         if k in meta:
             flat[k] = meta[k]
     for k, v in (meta.get("timings") or {}).items():
-        flat[k] = "%s s" % v
+        flat[k] = ("{:,}".format(v) if k.startswith("faces") else "%s s" % v)
 
     viewer = HERE / ("viewer_%s.html" % tag)
     build_viewer(glb, flat, viewer, "cafe / %s" % tag)
