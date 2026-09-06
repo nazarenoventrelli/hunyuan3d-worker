@@ -57,6 +57,7 @@ from hy3dshape import (  # noqa: E402
     DegenerateFaceRemover,
     Hunyuan3DDiTFlowMatchingPipeline,
 )
+from hy3dshape.pipelines import export_to_trimesh  # noqa: E402
 from hy3dshape.rembg import BackgroundRemover  # noqa: E402
 
 MODEL_PATH = "tencent/Hunyuan3D-2.1"
@@ -182,14 +183,17 @@ def handler(job):
             torch.cuda.reset_peak_memory_stats()
         t = time.time()
         gen = torch.Generator(device="cuda").manual_seed(seed)
-        mesh = pipe(
+        outputs = pipe(
             image=image,
             num_inference_steps=steps,
             guidance_scale=guidance,
             generator=gen,
             octree_resolution=octree,
             output_type="mesh",
-        )[0]
+        )
+        # the pipeline yields Latent2MeshOutput, not a trimesh - the Space converts
+        # with export_to_trimesh before anything downstream touches .faces
+        mesh = export_to_trimesh(outputs)[0]
         timings["shape_s"] = round(time.time() - t, 2)
         _log_vram("after shape")
 
