@@ -60,7 +60,7 @@ from hy3dshape import (  # noqa: E402
 from hy3dshape.pipelines import export_to_trimesh  # noqa: E402
 from hy3dshape.rembg import BackgroundRemover  # noqa: E402
 
-HANDLER_VERSION = "v8-rasterizer-from-source"
+HANDLER_VERSION = "v9-no-build-isolation"
 print("[boot] handler " + HANDLER_VERSION)
 
 MODEL_PATH = "tencent/Hunyuan3D-2.1"
