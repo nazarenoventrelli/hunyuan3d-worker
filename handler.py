@@ -104,6 +104,30 @@ def get_paint(max_num_view, resolution):
     return _paint
 
 
+def _decimate_open3d(mesh, target_faces):
+    """Quadric decimation via open3d, used when the upstream pymeshlab path breaks."""
+    try:
+        import numpy as np
+        import open3d as o3d
+        import trimesh
+
+        if len(mesh.faces) <= target_faces:
+            return mesh
+        o = o3d.geometry.TriangleMesh(
+            o3d.utility.Vector3dVector(np.asarray(mesh.vertices, dtype=float)),
+            o3d.utility.Vector3iVector(np.asarray(mesh.faces, dtype=int)),
+        )
+        o.remove_duplicated_vertices()
+        o.remove_degenerate_triangles()
+        o = o.simplify_quadric_decimation(int(target_faces))
+        return trimesh.Trimesh(
+            vertices=np.asarray(o.vertices), faces=np.asarray(o.triangles), process=False
+        )
+    except Exception as e:  # noqa: BLE001
+        print("[warn] open3d decimation failed too (%s); returning raw mesh" % e)
+        return mesh
+
+
 def load_image(spec):
     if not spec:
         raise ValueError("input.image is required (base64 or http url)")
@@ -171,9 +195,17 @@ def handler(job):
 
         progress("cleaning mesh")
         t = time.time()
-        mesh = FloaterRemover()(mesh)
-        mesh = DegenerateFaceRemover()(mesh)
-        mesh = FaceReducer()(mesh, max_facenum=face_count)
+        timings["faces_raw"] = int(len(mesh.faces))
+        try:
+            mesh = FloaterRemover()(mesh)
+            mesh = DegenerateFaceRemover()(mesh)
+            mesh = FaceReducer()(mesh, max_facenum=face_count)
+        except Exception as e:  # noqa: BLE001
+            # The upstream helpers ride a pymeshlab API that moves between versions.
+            # Never lose a generated mesh over decimation.
+            print("[warn] upstream cleanup failed (%s); falling back to open3d" % e)
+            timings["cleanup_fallback"] = type(e).__name__
+            mesh = _decimate_open3d(mesh, face_count)
         timings["cleanup_s"] = round(time.time() - t, 2)
 
         tmp = tempfile.mkdtemp()
