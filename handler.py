@@ -60,6 +60,9 @@ from hy3dshape import (  # noqa: E402
 from hy3dshape.pipelines import export_to_trimesh  # noqa: E402
 from hy3dshape.rembg import BackgroundRemover  # noqa: E402
 
+HANDLER_VERSION = "v5-export-trimesh"
+print("[boot] handler " + HANDLER_VERSION)
+
 MODEL_PATH = "tencent/Hunyuan3D-2.1"
 SUBFOLDER = "hunyuan3d-dit-v2-1"
 
@@ -199,8 +202,8 @@ def handler(job):
 
         progress("cleaning mesh")
         t = time.time()
-        timings["faces_raw"] = int(len(mesh.faces))
         try:
+            timings["faces_raw"] = int(len(mesh.faces))
             mesh = FloaterRemover()(mesh)
             mesh = DegenerateFaceRemover()(mesh)
             mesh = FaceReducer()(mesh, max_facenum=face_count)
@@ -247,6 +250,7 @@ def handler(job):
         timings["total_s"] = round(time.time() - t0, 2)
         progress("done in %ss" % timings["total_s"])
         return {
+            "handler": HANDLER_VERSION,
             "glb_b64": base64.b64encode(blob).decode(),
             "format": "glb",
             "bytes": len(blob),
@@ -258,6 +262,7 @@ def handler(job):
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
         return {
+            "handler": HANDLER_VERSION,
             "error": type(e).__name__ + ": " + str(e),
             "timings": timings,
             "elapsed_s": round(time.time() - t0, 2),
