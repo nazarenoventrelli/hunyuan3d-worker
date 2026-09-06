@@ -60,7 +60,7 @@ from hy3dshape import (  # noqa: E402
 from hy3dshape.pipelines import export_to_trimesh  # noqa: E402
 from hy3dshape.rembg import BackgroundRemover  # noqa: E402
 
-HANDLER_VERSION = "v10-rasterizer-built"
+HANDLER_VERSION = "v11-honour-face-count"
 print("[boot] handler " + HANDLER_VERSION)
 
 MODEL_PATH = "tencent/Hunyuan3D-2.1"
@@ -173,6 +173,11 @@ def handler(job):
         face_count = int(inp.get("face_count", 40000))
         max_num_view = int(inp.get("max_num_view", 6))
         tex_res = int(inp.get("texture_resolution", 512))
+        # Hunyuan3DPaintPipeline defaults use_remesh=True, and that path calls
+        # remesh_mesh() -> mesh_simplify_trimesh(target_count=40000), hardcoded.
+        # It silently throws away whatever face_count was asked for. Honour the
+        # request instead: only let it remesh when the target is at or below its cap.
+        paint_remesh = bool(inp.get("paint_remesh", face_count <= 40000))
 
         progress("loading image")
         image = load_image(inp.get("image"))
@@ -236,6 +241,7 @@ def handler(job):
                 mesh_path=shape_path,
                 image_path=img_path,
                 output_mesh_path=textured,
+                use_remesh=paint_remesh,
                 save_glb=True,
             )
             timings["texture_s"] = round(time.time() - t, 2)
@@ -252,6 +258,20 @@ def handler(job):
         with open(out_path, "rb") as f:
             blob = f.read()
 
+        # the exported file is the source of truth: the paint stage can still
+        # rewrite topology, so count faces on the artifact we are shipping
+        faces_out = int(len(mesh.faces))
+        try:
+            import trimesh as _tm
+
+            _s = _tm.load(out_path, process=False)
+            _parts = list(_s.geometry.values()) if hasattr(_s, "geometry") else [_s]
+            faces_out = int(sum(len(p.faces) for p in _parts))
+            timings["bodies"] = int(sum(getattr(p, "body_count", 1) for p in _parts))
+            timings["watertight"] = bool(all(p.is_watertight for p in _parts))
+        except Exception as e:  # noqa: BLE001
+            print("[warn] could not audit the exported mesh: %s" % e)
+
         timings["total_s"] = round(time.time() - t0, 2)
         progress("done in %ss" % timings["total_s"])
         return {
@@ -259,7 +279,9 @@ def handler(job):
             "glb_b64": base64.b64encode(blob).decode(),
             "format": "glb",
             "bytes": len(blob),
-            "faces": int(len(mesh.faces)),
+            "faces": faces_out,
+            "faces_before_paint": int(len(mesh.faces)),
+            "paint_remesh": paint_remesh,
             "textured": bool(want_texture and out_path != shape_path),
             "timings": timings,
         }
