@@ -1,14 +1,17 @@
-# Slim image for Hunyuan3D 2.1 on Runpod Serverless.
-# Built from Tencent's official Space, which ships a PREBUILT custom_rasterizer wheel
-# -> we do not need the CUDA devel toolchain (the official Dockerfile is >70GB because of it).
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+# Hunyuan3D 2.1 worker for Runpod Serverless, built from Tencent official Space.
+# devel base is required: the Space ships a prebuilt custom_rasterizer wheel, but it is
+# linked against a different torch C++ ABI and dies at import, so the CUDA extension has
+# to be compiled here against this image torch. That needs nvcc.
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYOPENGL_PLATFORM=egl \
     HF_HOME=/runpod-volume/hf \
-    HF_HUB_ENABLE_HF_TRANSFER=1
+    HF_HUB_ENABLE_HF_TRANSFER=1 \
+    CUDA_HOME=/usr/local/cuda \
+    TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3.10 python3.10-dev python3-pip \
@@ -32,8 +35,15 @@ RUN git lfs install && git clone --depth 1 https://huggingface.co/spaces/tencent
 RUN pip install --no-cache-dir -r requirements.txt \
  && pip install --no-cache-dir runpod hf_transfer pybind11
 
-# prebuilt CUDA rasterizer wheel that ships in the Space root
-RUN pip install --no-cache-dir ./custom_rasterizer-0.1-cp310-cp310-linux_x86_64.whl
+# The Space ships a prebuilt custom_rasterizer wheel, but it is linked against a
+# different torch C++ ABI than torch 2.5.1 and fails at import with
+# "undefined symbol: _ZN3c106detail23torchInternalAssertFail...". Build from source.
+RUN set -eux; \
+    if [ -d hy3dpaint/custom_rasterizer ]; then SRC=hy3dpaint/custom_rasterizer; \
+    elif [ -d hy3dpaint/packages/custom_rasterizer ]; then SRC=hy3dpaint/packages/custom_rasterizer; \
+    else echo "custom_rasterizer source not found:"; find . -maxdepth 4 -name "custom_rasterizer*" ; exit 1; fi; \
+    echo "building $SRC"; cd "$SRC"; pip install --no-cache-dir . ; \
+    cd /app; python -c "import custom_rasterizer_kernel, custom_rasterizer; print('custom_rasterizer OK')" 
 
 # compile the mesh inpainting extension. Plain c++/pybind11, no CUDA.
 # Without this the texture stage silently falls back to pure Python and is ~60x slower.
