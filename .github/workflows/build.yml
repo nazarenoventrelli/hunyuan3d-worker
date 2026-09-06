@@ -35,6 +35,8 @@ jobs:
           push: true
           provenance: false
           tags: ghcr.io/${{ github.repository_owner }}/hunyuan3d-worker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Report size
         run: df -h /

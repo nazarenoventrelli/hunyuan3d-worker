@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxrender1 libsm6 libxext6 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN ln -sf /usr/bin/python3.10 /usr/bin/python && python -m pip install -U pip
+RUN ln -sf /usr/bin/python3.10 /usr/bin/python && ln -sf /usr/bin/python3.10-config /usr/bin/python3-config && python -m pip install -U pip
 
 # torch first so the heavy layer caches independently
 RUN pip install --no-cache-dir torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \

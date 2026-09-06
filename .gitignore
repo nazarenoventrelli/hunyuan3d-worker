@@ -1,0 +1,3 @@
+test/.env
+test/*.glb
+test/viewer_*.html
