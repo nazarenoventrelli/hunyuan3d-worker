@@ -43,7 +43,7 @@ RUN set -eux; \
     elif [ -d hy3dpaint/packages/custom_rasterizer ]; then SRC=hy3dpaint/packages/custom_rasterizer; \
     else echo "custom_rasterizer source not found:"; find . -maxdepth 4 -name "custom_rasterizer*" ; exit 1; fi; \
     echo "building $SRC"; cd "$SRC"; pip install --no-cache-dir --no-build-isolation . ; \
-    cd /app; python -c "import custom_rasterizer_kernel, custom_rasterizer; print('custom_rasterizer OK')" 
+    cd /app; python -c "import torch, custom_rasterizer, custom_rasterizer_kernel; print('custom_rasterizer OK')" 
 
 # compile the mesh inpainting extension. Plain c++/pybind11, no CUDA.
 # Without this the texture stage silently falls back to pure Python and is ~60x slower.
