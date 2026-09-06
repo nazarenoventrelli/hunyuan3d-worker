@@ -13,8 +13,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3.10 python3.10-dev python3-pip \
       build-essential git git-lfs wget ca-certificates \
-      libegl1 libgl1 libglx0 libgles2 libglvnd0 libglib2.0-0 \
-      libxrender1 libsm6 libxext6 libgomp1 \
+      libegl1 libgl1 libglx0 libgles2 libglvnd0 libglib2.0-0 libglu1-mesa \
+      libxrender1 libsm6 libice6 libxext6 libgomp1 \
+      libx11-6 libxi6 libxxf86vm1 libxfixes3 libxkbcommon0 libxkbcommon-x11-0 \
+      libxrandr2 libxcursor1 libxinerama1 libfontconfig1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/python3.10 /usr/bin/python && ln -sf /usr/bin/python3.10-config /usr/bin/python3-config && python -m pip install -U pip
